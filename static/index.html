@@ -1,0 +1,218 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Airport Map</title>
+    <meta name="viewport" content="initial-scale=1.0">
+    <meta charset="utf-8">
+    <script src="https://code.jquery.com/jquery-3.1.0.min.js" integrity="sha256-cCueBR6CsyA4/9szpPfrX3s49M9vUU5BgtiJj06wt/s=" crossorigin="anonymous"></script>
+    <style>
+      html, body {
+        height: 100%;
+        margin: 0;
+        padding: 0;
+      }
+      #map {
+        height: 100%;
+      }
+
+      #statusBar{
+        text-align: center;
+        font-family:tahoma;
+        font-size:10pt;
+        z-index: 999;
+        width:500px;
+        height:30px;
+        position:absolute;
+        left:50%;
+        top:0;
+        margin:-0px 0 0 -250px;
+        border: 1px solid #000000;
+        box-shadow: 0 2px 2px 0 #111111;
+        background-color:ivory;
+        display:none;
+      }
+
+      #input{
+        z-index: 999;
+        width:500px;
+        height:300px;
+        position:absolute;
+        left:50%;
+        top:50%;
+        margin:-200px 0 0 -250px;
+        border: 1px solid #000000;
+        border-radius: 4px;
+        box-shadow: 0 2px 2px 0 #111111;
+        background-color:ivory;
+      }
+
+      .label{
+          width:80px;
+          display:inline-block;
+
+      }
+      .search{
+          font-family:tahoma;
+          font-size:10pt;
+          font-color:#0000FF;
+          text-decoration: underline;
+          cursor: pointer;
+      }
+
+
+    </style>
+  </head>
+  <body>
+    <div id="statusBar"></div>
+    <div id="input">
+    <label class="label">Origin:</label> <input type="text" id="origin"></br>
+    <div id="originSearch" class='search'></div>
+    <div id="destinationControls">
+    <label class="label">Destination:</label> <input type="text" id="destination"></br>
+    <div id="destinationSearch" class='search'></div>
+    </div>
+    <label class="label">Range:</label> <input type="number" id="range"></br>
+    <input type="button" value="Submit" id="submit">
+    </div>
+    <div id="map"></div>
+    <script>
+
+      var map;
+      var flightPathLine;
+      var markers = [];
+
+
+      $(function(){
+
+          $('#origin').keyup(function(){
+              var search = $('#origin').val();
+              var url = "/search/" + search;
+              var jqxhr = $.get( url, function(data) {
+                  var originSearch = $('#originSearch');
+                  originSearch.html("");
+                  for(var i = 0; i < data.length; i++){
+                      var airport = data[i];
+                      var htmlStr = "<a data-code='" + airport.LocationID  +"'>" + airport.LocationID + " -- " + airport.FacilityName + ", " + airport.City + ", " + airport.State + "</a>"
+                      var link = $($.parseHTML(htmlStr));
+                      link.click(function(event){
+                           $("#origin").val($(this).attr('data-code'));
+                           $('#originSearch').html("");
+                      });
+                      originSearch.append(link);
+                      originSearch.append($($.parseHTML("<br>")));
+                  }
+                  
+              });
+          });
+
+
+          $('#destination').keyup(function(){
+              var search = $('#destination').val();
+              var url = "/search/" + search;
+              var jqxhr = $.get( url, function(data) {
+                  var destinationSearch = $('#destinationSearch');
+                  destinationSearch.html("");
+                  for(var i = 0; i < data.length; i++){
+                      var airport = data[i];
+                      var htmlStr = "<a data-code='" + airport.LocationID  +"'>" + airport.LocationID + " -- " + airport.FacilityName + ", " + airport.City + ", " + airport.State + "</a>"
+                      var link = $($.parseHTML(htmlStr));
+                      link.click(function(event){
+                           $("#destination").val($(this).attr('data-code'));
+                           $('#destinationSearch').html("");
+                      });
+                      destinationSearch.append(link);
+                      destinationSearch.append($($.parseHTML("<br>")));
+                  }
+                  
+              });
+          });
+
+
+          $("#submit").click(function(){
+              $("#input").hide();
+              var origin = $("#origin").val();
+              var destination = $("#destination").val();
+              var range = $("#range").val();
+              var url = "/route/" + origin + "/" + destination + "/" + range;
+
+
+              var htmlStr = "<img src='/spinning-wheel.gif' width=12 height=12> Calculating. Please Wait... Origin: " + origin + " Destination: " + destination + " Range: " + range;
+              $("#statusBar").show();
+              $("#statusBar").html(htmlStr);
+
+              var jqxhr = $.get( url, function(data) {
+
+                  var htmlStr = "Origin: " + origin + " Destination: " + destination + " Range: " + range;
+                  $("#statusBar").html(htmlStr);
+                  var resetBtn = $($.parseHTML("<input type='button' value='Reset'>"));
+                  resetBtn.click(function(){
+                      $("#statusBar").hide();
+                      $("#input").show();
+                      $("#origin").val('');
+                      $("#destination").val('');
+                      $("#range").val('');
+                      flightPathLine.setMap(null);
+                      for(var i = 0; i < markers.length; i++){
+                        markers[i].setMap(null);
+                      }
+                      markers.length = 0;
+                  });
+
+                  $("#statusBar").append(resetBtn);
+
+                  var flightPath = [];
+
+                  var getPin = function(node){
+                      url = "/airport/" + node[0];
+
+                      var airportData = $.get(url, function(data) {
+                            var latLng = {lat: parseFloat(data.Latitude), lng: parseFloat(data.Longitude)};
+                            flightPath.push(latLng);
+                            var marker = new google.maps.Marker({
+                                position: latLng,
+                                map: map,
+                                title: data.FacilityName
+                            });
+
+                            markers.push(marker);
+
+                            if (flightPath.length > 1){
+                                if (flightPathLine){
+                                    flightPathLine.setMap(null);
+                                }
+                                flightPathLine = new google.maps.Polyline({
+                                    path: flightPath,
+                                    geodesic: true,
+                                    strokeColor: '#00FF00',
+                                    strokeOpacity: 1.0,
+                                    strokeWeight: 2
+                                });
+                                flightPathLine.setMap(map);
+                            }
+
+                      });
+
+                      if(node[1].length > 0){
+                        getPin(node[1])
+                      }
+                  }
+
+                  getPin(data[1]);
+
+              });	
+          })
+      });
+
+	  
+      function initMap() {
+        map = new google.maps.Map(document.getElementById('map'), {
+          center: {lat: 38.83, lng: -97.6},
+          zoom: 5
+        });
+      }
+    </script>
+    <script src="https://maps.googleapis.com/maps/api/js?key=AIzaSyDD3l8F3zlp771ZAyXsPFL4g2TR3WdfuFw&callback=initMap" async defer></script>
+	
+
+  </body>
+</html>
