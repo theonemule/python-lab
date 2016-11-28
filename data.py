@@ -34,7 +34,7 @@ with open('airports-distance.csv', 'w') as csvfile:
         row = {}
         row['id'] = code1
 
-        if rowIdx % 100 == 0:
+        if rowIdx % 10 == 0:
             print("Processing " + str(rowIdx) + " of " + str(len(LatLongDict)) + " airports.")
 
         rowIdx += 1

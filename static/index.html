@@ -176,7 +176,7 @@
 
                             markers.push(marker);
 
-                            if (flightPath.length > 1){
+                            if (flightPath.length > 0){
                                 if (flightPathLine){
                                     flightPathLine.setMap(null);
                                 }
@@ -190,11 +190,13 @@
                                 flightPathLine.setMap(map);
                             }
 
+                            if(node[1].length > 0){
+                                getPin(node[1])
+                            }
+
                       });
 
-                      if(node[1].length > 0){
-                        getPin(node[1])
-                      }
+
                   }
 
                   getPin(data[1]);
