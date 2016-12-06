@@ -8,7 +8,7 @@ from flask import send_from_directory
 from heapq import *
 
 
-#This is a Python implemntaion of Dijkstra's algorithm that is using a heap instead of recursion. 
+#This is a Python implementation of Dijkstra's algorithm that is using a heap instead of recursion. 
 #Many implementations use recursion, but the scope of this app with millions of possible edges made using recursion impractical.
 def dijkstra(edges, f, t):
     g = defaultdict(list)
